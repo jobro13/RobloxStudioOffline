@@ -1,0 +1,11 @@
+##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1	localhost www.roblox.com c0.rbxcdn.com c1.rbxcdn.com c2.rbxcdn.com c3.rbxcdn.com c4.rbxcdn.com c5.rbxcdn.com c6.rbxcdn.com c7.rbxcdn.com
+255.255.255.255	broadcasthost
+::1             localhost 
+fe80::1%lo0	localhost
+

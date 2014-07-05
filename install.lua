@@ -22,6 +22,7 @@ print("Now edit hosts (C:/Windows/System32/etc/hosts) with your favorite text ed
 print("No, notepad is not your favorite text editor; sublime text 2 is.")
 print("On mac this can be found in /etc/hosts, the command sudo nano /etc/hosts will do")
 print("It could look like this: 127.0.0.1 	localhost www.roblox.com roblox.com")
+print("Also add roblox cdn servers to this; c0.rbxcdn.com till c7.rbxcdn.com (all redirect to 127.0.0.1)")
 print("Press any key when you are done")
 io.read()
 
