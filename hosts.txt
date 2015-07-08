@@ -1,11 +1,8 @@
-##
-# Host Database
-#
-# localhost is used to configure the loopback interface
-# when the system is booting.  Do not change this entry.
-##
-127.0.0.1	localhost www.roblox.com c0.rbxcdn.com c1.rbxcdn.com c2.rbxcdn.com c3.rbxcdn.com c4.rbxcdn.com c5.rbxcdn.com c6.rbxcdn.com c7.rbxcdn.com
-255.255.255.255	broadcasthost
-::1             localhost 
-fe80::1%lo0	localhost
+# Add the following lines to your hosts file
+# Mac: /etc/hosts
+# Windows: C:/system32/Drivers/etc/hosts
 
+#127.0.0.1	localhost www.roblox.com c0.rbxcdn.com c1.rbxcdn.com c2.rbxcdn.com c3.rbxcdn.com c4.rbxcdn.com c5.rbxcdn.com c6.rbxcdn.com c7.rbxcdn.com ecsv2.roblox.com clientsettings.api.roblox.com api.roblox.com js.rbxcdn.com wiki.roblox.com ephemeralcounters.api.roblox.com images.rbxcdn.com
+
+#Uncommenting above line redirects ALL requests to any currently used roblox hosts to localhost, where lua is setup to handle all requests and cache them. This is hackish, but works.
+# Once requested to disable, make sure the # is present. To make the cache active, remove it.

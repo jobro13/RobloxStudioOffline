@@ -1,18 +1,30 @@
 local httpagent = {}
 
+httpagent.downtime_recheck = 600;
+-- ^ after how many seconds do we retry connecting to host?
+-- default is 10 minutes.
+
+-- default socket timeout time;
+-- make this higher on less reliable networks
+httpagent.socket_timeout = 0.5
+
+-- max headers for download
+-- only to make sure non-http request dont exhaust copas over time
+httpagent.max_headers = 1000
+
+
 require "socket"
+
 local copas = require "copas"
+local color = require "color"
+local lfs = require "lfs"
+if not _G.__skipdns then 
+print("Disable all roblox hosts in your hosts file, so you can surf to roblox normally, without entering the raw IP adress")
+print("This is necessary, because we need to update the DNS cache here")
+print("Press a key when done")
+io.read()
 
 local hosts_down = {}
-
-local hosts = {
-	--["209.15.211.168"] = "www.roblox.com"
-
-}
-
-io.write("disable hosts file and hit a key")
-io.read()
--- wow so cool
 local mydns = {
 	["c0.rbxcdn.com"] = "23.65.181.91",
 	["c1.rbxcdn.com"] = "88.221.216.120",
@@ -46,73 +58,46 @@ local mydns = {
 }
 print("doing dns queries")
 
+
 for i,v in pairs(mydns) do
 	mydns[i] = socket.dns.toip(i)
 	if mydns[i] == nil then
-		error("error dns " .. i)
+		print(color("%{red}error dns " .. i))
+		os.exit()
 	end
-	print(i .. " -> " .. mydns[i])
+	print(color(i .. " -> %{yellow}" .. mydns[i]))
 end 
 
-io.write("enable hosts file")
-io.read()
+print(color("%{green bold}Done. To cache redirect all hosts to localhost. This program wont work if you dont do this!"))
+else 
+	print("not setting up dns - cache mode unavailable, unset _G.__skipdns to fix")
+end
+-- Check http request
 
-local socket = require "socket"
-local lfs = require "lfs"
-
--- Checks request on socket
 function httpagent.checkrequest(socket)
-	socket:settimeout(0.5)
-	local GOTCONN =false;
+	socket:settimeout(httpagent.socket_timeout)
 	local fline = copas.receive(socket)
-	if fline then 
-	local get = fline:match("%w+ (.*) HTTP/%d%.%d")
-	local BUFFER = ""
-	BUFFER =  BUFFER .. fline .. "\r\n"
-	local host 
-	local this 
-	local skip = true
-	repeat 
-		this = copas.receive(socket)
-		if this:match("^Connection: ") then 
-			GOTCONN=true
-			BUFFER = BUFFER .. "Connection: close\r\n"
-		else
-			BUFFER = BUFFER .. this .. "\r\n"
-		end
-		if this then 
-			host = this:match("Host: (.*)")
-
-		end 
-		if this == "\r\n" then
-			 skip=false
-		end 
-	until not this or host or not skip
-	while true do 
-	local nxt = copas.receive(socket)
-	if nxt then
-		if nxt:match("^Connection: ") then
-		GOTCONN=true 
-			BUFFER = BUFFER .. "Connection: close\r\n"
-		else 
-			if nxt == "" and not GOTCONN then
-				BUFFER = BUFFER .. "Connection: close\r\n";
-			end
-			BUFFER = BUFFER .. 	(nxt or "") .. "\r\n"
-		end
-	end
-	if nxt == "" then
-		break
+	if fline then
+		local url = fline:match("%w+ (.*) HTTP/%d%.%d")
+		local received = "" .. fline .. "\r\n";
+		local host, this;
+		repeat 
+			this = copas.receive(socket)
+			if this then
+				host = host or this:match("Host: (.*)")
+				received = received .. this .. "\r\n"
+				if this == "" then 
+					break 
+				end
+			end 
+		until false
+		httpagent.setlocalcache("last_request", "", received)
+		return url, host, received 
 	end 
-	end
-	if get then 
-		print(BUFFER:match("Connection: (%w+)"))
-		httpagent.setlocalcache('test','buffer',BUFFER)
-		return get, host, BUFFER
-	end
-end
-	return false, nil, BUFFER 
-end
+	return false, nil, fline
+end 
+
+-- ugly file fixer for non valid file characters
 
 function httpagent.getfilename(host,page)
 	local name = host.."_0_"..page
@@ -125,12 +110,14 @@ function httpagent.getfilename(host,page)
 	[">"] = "_007_",
 	["<"] = "_008_",
 	["|"] = "_009_"
-}
+	}
 	for i,v in pairs(subs) do 
 		name = name:gsub(i,v)
 	end
 	return name 
 end 
+
+-- gets a file (content) from local cache;
 
 function httpagent.getlocalcache(host,page)
 	local file = httpagent.getfilename(host,page)
@@ -152,6 +139,8 @@ function httpagent.getlocalcache(host,page)
 	return ret
 end
 
+-- sets a file (with content) to local cache 
+
 function httpagent.setlocalcache(host,page,data)
 	local file = httpagent.getfilename(host,page)
 
@@ -166,8 +155,9 @@ function httpagent.setlocalcache(host,page,data)
 	lfs.chdir("..")
 end
 
--- FOR FUCKS SAKE LAUSOCKET PLS
-function GETLINE(sock)
+-- get a line from socket (raw) 
+-- preservers \r and \n
+function sGetLine(sock)
 	-- keep reading one byte
 	local buffer = ""
 	while true do 
@@ -180,143 +170,67 @@ function GETLINE(sock)
 	return buffer 
 end 
 
-function httpagent.download(host, page, buffer,debug)
+function httpagent.download(host, page, request)
 	if not host then
-		return
-	end
-	print("HIT: " .. host)
-	--print("host download" , host)
+		print(color("%{red} no host? returning"))
+		return 
+	end 
+	print(color("%{green}Incoming request to: %{white}" .. host .. "%{green dim} "..string.sub(page, 1, 30)))
 	if hosts_down[host] and os.time() - hosts_down[host] < 600 then 
 		return httpagent.getlocalcache(host,page)
 	else 
 		hosts_down[host] = nil -- try again after 10 mins
 	end
 	local new = socket.tcp()
-	new:settimeout(2)
+	new:settimeout(httpagent.socket_timeout)
 	if not mydns[host] then
-	--	print("New host: " .. tostring(host))
-	end
-
-	--print(ip, host)
-	io.write('connecting..')
-	local ack, err = new:connect( mydns[host] or ip or host, 80)
-	io.write(' connected, ' .. tostring(ack) .. ' ' .. tostring(err) .. '\n')
-	new:settimeout(2)
-	--print(ack, err)
-	if ack and new then 
-	--[[	new:send("GET "..page.." HTTP/1.1\r\n")
-
-		new:send("User-Agent: RobloxStudio\r\n") -- lies!
-		new:send("Connection: close\r\n")
-		new:send("Accept-Encoding: none\r\n")
-		new:send("Accept-Language: *\r\n")
-		new:send("Host: ".. (hosts[host] or host) .. "\r\n")
-		if additional_header then 
-			new:send(additional_header)
-		end
-		new:send("\r\n")--]]
-		--print(buffer)
-		copas.send(new, buffer)
-
-		local buff = ""
-		local amount
-		local status 
-		for i = 1, 1000 do
-			local ret = GETLINE(new)
-			io.write(ret)
-			amount = amount or ret:match("^Content%-Length: (%d+)") 
-			status = status or ret:match("^HTTP/%d%.%d (%d+) ")
-			if not ret then 
-				return nil
-			end
-			buff = buff ..ret 
-			if ret == "\r\n" then 
+		print(color("%{red}Unknown host: " .. host))
+		return 
+	end 
+	io.write(color("\t%{yellow}Connecting..."))
+	local ack, err = new:connect(mydns[host] or host,80)
+	if err then
+		io.write(color("\t\t%{red} ERROR: " .. err.."\n"))
+	else 
+		io.write(color("\t\t%{green} OK, sending request\n"))
+	end 
+	if ack then 
+		copas.send(new, request)
+		local buffer = "";
+		local amount, status;
+		for i = 1, httpagent.max_headers do 
+			local line = sGetLine(new)
+			amount = amount or line:match("^Content%-Length: (%d+)") 
+			status = status or line:match("^HTTP/%d%.%d (%d+) ")
+			if not line then
+				print(color("\t\t\t%{red}Strange http request, abandon thread"))
+				return 
+			end 
+			buffer = buffer .. line 
+			if line == "\r\n" then 
+				-- last line of http request.
+				-- http body starts after this
 				break 
 			end 
-			if i == 1000 then
-				print("loop completed; too many headers")
-			end
-		end 
-		print("done reading status: " .. tostring(status))
-		if amount then 
-			buff = buff .. copas.receive(new, tonumber(amount))
-		else 
-			print("err reading amount")
-			return nil 
-		end 	
-		--local status = ret:match("HTTP/%d%.%d (%d+)") 
-	--	print("HTTP STATUS: " .. tostring(status))
-		--print("RECEIVING; ", ret)
-		--[[if tonumber(status) == 3032 then 
-			-- crap
-			while ret do 
-				ret = new:receive("*a") 
-				if ret then 
-					buff = buff .. ret
-				end 
-			end
-			local content = buff
-			local url = content:match("<a href=\"([^\"]+)\">")
-			print(url)
-			if url then
-				local host, serv,npage = url:match("http://([^%.])%.([^%.]+%.[^/]+)(.*)")
-				print(host, serv)
-				if host and serv then 
-					local add_header = "Host: "..host.."."..serv.."\r\n"
-					return httpagent.download(serv, npage, add_header, page)
-				end
+			if i >= httpagent.max_headers then
+				print(color("\t\t\t%{red}Abandoning http receive loop: too many headers"))
 			end 
-		end --]]
-		buff = buff 
-		-- more
-
-
-		
-		local content = buff
-		-- detect http redirects;
-		--[[if tostring(status) == "302" then 
-			local url = content:match("Location: ([^\r]+)")
-			if not url then 
-				url = (content:match("<a href=\"([^\"]*)\"") )
-			end
-			print("->")
-			print(url)
-			local host, uri = url:match("http://([^/]*)(/.*)")
-			print(host, uri)
-			local body = httpagent.download(host, uri)
-			content=body
-		end
---]]
-		--print(content)
-		if debug then
-			--[[for i = 1, math.ceil(string.len(content)/50) do
-				local start = (i-1)*50 + 1
-				local ends = i * 50 + 1
-				if ends > string.len(content) then
-					ends = string.len(content)
-				end 
-				print(string.sub(content, start, ends))
-			end--]] 
 		end 
-		if content and content:len() > 0 and not ignore then
-
-			httpagent.setlocalcache(host,page,content)
-		end
-
-		return content
+		if amount then
+			io.write(color("\t\t\t%{blue}HTTP status: " .. tostring(status) .. " Content-Length: " .. amount .. ". Downloading..."))
+			buffer = buffer .. copas.receive(new, tonumber(amount))
+			io.write(color(" %{green bold}Done.\n"))
+		else 
+			print(color("\t\t\t%{red}Content-Length not set. Aborting. (not a http request?)"))
+			return 
+		end 
+		httpagent.setlocalcache(host, page, buffer)
+		return buffer 
 	else 
-		--print("yes")
+		-- set host as down
 		hosts_down[host] = os.time()
-		return httpagent.getlocalcache(host,page)
-	end
-end
+		return httpagent.getlocalcache(host, page)
+	end 
+end 
 
-function httpagent.addrule(pmatch, ovfunc)
-
-end
-
-function httpagent.response(content)
-
-end
-
-return httpagent
+return httpagent 
