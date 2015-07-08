@@ -1,4 +1,6 @@
 print("This short script will guide you through all steps to setup your system to run roblox studio offline")
+print("Jobro13 is now on vacation so if stuff doesnt work please fork this with your own fixes. Thanks.")
+print("I hope no bugs are found because if there are bugs found it means I cannot dev on vacation! Yay!")
 print("This is all coded in Lua. While most people disagree on this, I'll just go for: it must work. And it will!")
 print("Doing a dependency check ..")
 
@@ -18,7 +20,7 @@ print("This may seem logical but think if it will work for you.")
 print("Press any key to continue when you read all this.")
 io.read()
 
-print("Now edit hosts (C:/Windows/System32/etc/hosts) with your favorite text editor")
+print("Now edit hosts (C:/Windows/System32/etc/hosts) (Mac; /etc/hosts, need to be superuser) with your favorite text editor")
 print("No, notepad is not your favorite text editor; sublime text 2 is.")
 print("On mac this can be found in /etc/hosts, the command sudo nano /etc/hosts will do")
 print("It could look like this: 127.0.0.1 	localhost www.roblox.com roblox.com")
