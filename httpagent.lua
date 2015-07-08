@@ -1,5 +1,8 @@
 local httpagent = {}
 
+--manuel set to serve cache?
+httpagent.cachemode=true
+
 httpagent.downtime_recheck = 600;
 -- ^ after how many seconds do we retry connecting to host?
 -- default is 10 minutes.
@@ -176,7 +179,7 @@ function httpagent.download(host, page, request)
 		return 
 	end 
 	print(color("%{green}Incoming request to: %{white}" .. host .. "%{green dim} "..string.sub(page, 1, 30)))
-	if hosts_down[host] and os.time() - hosts_down[host] < 600 then 
+	if httpagent.cachemode or hosts_down[host] and os.time() - hosts_down[host] < 600 then 
 		return httpagent.getlocalcache(host,page)
 	else 
 		hosts_down[host] = nil -- try again after 10 mins
