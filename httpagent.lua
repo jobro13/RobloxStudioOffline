@@ -24,8 +24,8 @@ print("This is necessary, because we need to update the DNS cache here")
 print("Press a key when done")
 io.read()
 
-local hosts_down = {}
-local mydns = {
+hosts_down = {}
+mydns = {
 	["c0.rbxcdn.com"] = "23.65.181.91",
 	["c1.rbxcdn.com"] = "88.221.216.120",
 	["c2.rbxcdn.com"] = "88.221.216.120",
