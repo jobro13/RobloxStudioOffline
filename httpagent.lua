@@ -1,7 +1,7 @@
 local httpagent = {}
 
 --manuel set to serve cache?
-httpagent.cachemode=true
+httpagent.cachemode=false
 
 httpagent.downtime_recheck = 600;
 -- ^ after how many seconds do we retry connecting to host?
